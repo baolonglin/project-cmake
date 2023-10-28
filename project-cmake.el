@@ -470,6 +470,9 @@ mingw64, mingw32 or ucrt64."
       ,@(let* ((gdb (kit-exec-find "gdb")))
           (and gdb
                `(:gdb ,gdb)))
+      ,@(let* ((lldb (kit-exec-find "lldb")))
+           (and lldb
+                `(:lldb ,lldb)))
 	  ,@(and shell-launcher
 			 `(:shell ,shell-launcher))
       )))
@@ -829,19 +832,27 @@ the current buffer belongs to one such executable target, it is
 passed as initial value in the selection list.
 
 Note: This function defaults to calling the old interface GUD-GDB
-on the Windows platform."
+on the Windows platform.
+Note: For platform does not have gdb but have lldb, it requires
+Realgud:lldb to be installed."
   (interactive)
   (require 'comint)
   (let ((default-directory (project-cmake-source-directory))
 		(target (project-cmake-kit-convert-path
 				 (project-cmake-api-choose-executable-file)))
         (process-environment (project-cmake-kit-debug-environment))
-		(gdb-executable (project-cmake-kit-value :gdb)))
+		(gdb-executable (project-cmake-kit-value :gdb))
+        (lldb-executable (project-cmake-kit-value :lldb)))
 	(if gdb-executable
 		(if (eq system-type 'windows-nt)
 			(gud-gdb (project-cmake-kit-wrap (list gdb-executable "--fullname" target)))
 		  (gdb (project-cmake-kit-wrap (list gdb-executable "-i=mi" target))))
-	  (error "No GDB installed in kit %s."))))
+      (if lldb-executable
+          (if (fboundp 'realgud--lldb)
+              (realgud--lldb (project-cmake-kit-wrap (list lldb-executable target)))
+            (error "Realgud:lldb is needed %s."))
+        (error "No proper debugger installed in kit %s."))
+      )))
 
 (defun project-cmake-run-target ()
   "selecting target and run it inside a compilation-mode buffer."
